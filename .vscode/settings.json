@@ -1,0 +1,13 @@
+{
+    "cSpell.words": [
+        "halign",
+        "prefs"
+    ],
+    "[javascript]": {
+        "editor.detectIndentation": false,
+        "editor.insertSpaces": true,
+        "editor.tabSize": 2,
+    },
+    "javascript.updateImportsOnFileMove.enabled": "always",
+    "javascript.validate.enable": true,
+}
