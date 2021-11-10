@@ -2,11 +2,24 @@
 <schemalist>
   <schema id="org.gnome.shell.extensions.monitor-window-switcher" path="/org/gnome/shell/extensions/monitor-window-switcher/">
     <!-- See also: https://developer.gnome.org/glib/stable/gvariant-format-strings.html -->
-    <key name="filter-per-monitor" type="b">
+    <key name="ws-current-monitor" type="b">
       <default>true</default>
     </key>
 
-    <key name="show-in-current" type="b">
+    <key name="ws-filter-monitor" type="b">
+      <default>true</default>
+    </key>
+
+    
+    <key name="as-current-monitor" type="b">
+      <default>true</default>
+    </key>
+
+    <key name="as-filter-workspace" type="b">
+      <default>true</default>
+    </key>
+
+    <key name="as-filter-monitor" type="b">
       <default>true</default>
     </key>
   </schema>

@@ -2,7 +2,7 @@
 
 const AltTab = imports.ui.altTab;
 const GObject = imports.gi.GObject;
-const Gio = imports.gi.Gio;
+const { Gio, Shell } = imports.gi;
 const Main = imports.ui.main;
 
 const ExtensionUtils = imports.misc.extensionUtils;
@@ -12,78 +12,165 @@ const Prefs = Me.imports.prefs;
 // Original references
 let _getWindows;
 let _windowSwitcherPopup;
+let _appSwitcherPopup;
+
+// Modified references
+let getWindows;
+let windowSwitcherPopup;
+let appSwitcherPopup;
 
 // Settings
 let settings;
-let filterPerMonitorSignal;
-let showInCurrentSignal;
-let FILTER_PER_MONITOR = true;
-let SHOW_IN_CURRENT = true;
 
-// Modified
-let getWindows;
-let windowSwitcherPopup;
+let wsCurrentMonitorSignal;
+let wsFilterMonitorSignal;
+
+let asCurrentMonitorSignal;
+let asFilterWorkspaceSignal;
+let asFilterMonitorSignal;
+
+// Options
+let WS_CURRENT_MONITOR;
+let WS_FILTER_MONITOR;
+
+let AS_CURRENT_MONITOR;
+let AS_FILTER_WORKSPACE;
+let AS_FILTER_MONITOR;
 
 //
 
 function getSchema() {
-  let schemaDir = Me.dir.get_child("schemas").get_path();
-  let schemaSource = Gio.SettingsSchemaSource.new_from_directory(schemaDir, Gio.SettingsSchemaSource.get_default(), false);
-  let schema = schemaSource.lookup(Prefs.SCHEMA_NAME, false);
+  const schemaDir = Me.dir.get_child("schemas").get_path();
+  const schemaSource = Gio.SettingsSchemaSource.new_from_directory(
+    schemaDir,
+    Gio.SettingsSchemaSource.get_default(),
+    false
+  );
+  const schema = schemaSource.lookup(Prefs.SCHEMA_NAME, false);
 
-  if (!schema) {
-    throw new Error("Cannot find schemas");
-  }
+  if (!schema) throw new Error("Cannot find schemas");
 
   return new Gio.Settings({ settings_schema: schema });
 }
 
 function enableSettings() {
-  const { FILTER_PER_MONITOR_KEY, SHOW_IN_CURRENT_KEY } = Prefs.Fields;
+  const {
+    WS_CURRENT_MONITOR_KEY,
+    WS_FILTER_MONITOR_KEY,
+    AS_CURRENT_MONITOR_KEY,
+    AS_FILTER_WORKSPACE_KEY,
+    AS_FILTER_MONITOR_KEY,
+  } = Prefs.Fields;
 
-  FILTER_PER_MONITOR = settings.get_boolean(FILTER_PER_MONITOR_KEY);
-  SHOW_IN_CURRENT = settings.get_boolean(SHOW_IN_CURRENT_KEY);
+  WS_CURRENT_MONITOR = settings.get_boolean(WS_CURRENT_MONITOR_KEY);
+  WS_FILTER_MONITOR = settings.get_boolean(WS_FILTER_MONITOR_KEY);
 
-  filterPerMonitorSignal = settings.connect(`changed::${FILTER_PER_MONITOR_KEY}`, () => {
-    FILTER_PER_MONITOR = settings.get_boolean(FILTER_PER_MONITOR_KEY);
-    AltTab.getWindows = FILTER_PER_MONITOR ? getWindows : _getWindows;
-  });
+  AS_CURRENT_MONITOR = settings.get_boolean(AS_CURRENT_MONITOR_KEY);
+  AS_FILTER_WORKSPACE = settings.get_boolean(AS_FILTER_WORKSPACE_KEY);
+  AS_FILTER_MONITOR = settings.get_boolean(AS_FILTER_MONITOR_KEY);
 
-  showInCurrentSignal = settings.connect(`changed::${SHOW_IN_CURRENT_KEY}`, () => {
-    SHOW_IN_CURRENT = settings.get_boolean(SHOW_IN_CURRENT_KEY);
-    AltTab.WindowSwitcherPopup = SHOW_IN_CURRENT ? windowSwitcherPopup : _windowSwitcherPopup;
-  });
+  wsCurrentMonitorSignal = settings.connect(
+    `changed::${WS_CURRENT_MONITOR_KEY}`,
+    () => (WS_CURRENT_MONITOR = settings.get_boolean(WS_CURRENT_MONITOR_KEY))
+  );
+
+  wsFilterMonitorSignal = settings.connect(
+    `changed::${WS_FILTER_MONITOR_KEY}`,
+    () => (WS_FILTER_MONITOR = settings.get_boolean(WS_FILTER_MONITOR_KEY))
+  );
+
+  asCurrentMonitorSignal = settings.connect(
+    `changed::${AS_CURRENT_MONITOR_KEY}`,
+    () => (AS_CURRENT_MONITOR = settings.get_boolean(AS_CURRENT_MONITOR_KEY))
+  );
+
+  asFilterWorkspaceSignal = settings.connect(
+    `changed::${AS_FILTER_WORKSPACE_KEY}`,
+    () => (AS_FILTER_WORKSPACE = settings.get_boolean(AS_FILTER_WORKSPACE_KEY))
+  );
+
+  asFilterMonitorSignal = settings.connect(
+    `changed::${AS_FILTER_MONITOR_KEY}`,
+    () => (AS_FILTER_MONITOR = settings.get_boolean(AS_FILTER_MONITOR_KEY))
+  );
 }
 
 function disableSettings() {
-  settings.disconnect(filterPerMonitorSignal);
-  settings.disconnect(showInCurrentSignal);
+  settings.disconnect(wsCurrentMonitorSignal);
+  settings.disconnect(wsFilterMonitorSignal);
+  settings.disconnect(asCurrentMonitorSignal);
+  settings.disconnect(asFilterWorkspaceSignal);
+  settings.disconnect(asFilterMonitorSignal);
 }
 
-//
+// Extension body
 
 function init() {
   _getWindows = AltTab.getWindows;
   _windowSwitcherPopup = AltTab.WindowSwitcherPopup;
+  _appSwitcherPopup = AltTab.AppSwitcherPopup;
 
   settings = getSchema();
 
   getWindows = function (workspace) {
-    const monitor = global.display.get_current_monitor();
-    return _getWindows(workspace)
-      .filter((w) => w.get_monitor() === monitor);
+    if (WS_FILTER_MONITOR) {
+      const monitor = global.display.get_current_monitor();
+      return _getWindows(workspace).filter((w) => w.get_monitor() === monitor);
+    }
+
+    return _getWindows(workspace);
   };
 
   windowSwitcherPopup = GObject.registerClass(
-    class AlTabPopup extends AltTab.WindowSwitcherPopup {
-      vfunc_allocate() {
-        const primaryMonitor = Main.layoutManager.primaryMonitor;
-        Main.layoutManager.primaryMonitor = Main.layoutManager.currentMonitor;
+    class WSPopup extends AltTab.WindowSwitcherPopup {
+      vfunc_allocate(...args) {
+        if (WS_CURRENT_MONITOR) {
+          const primaryMonitor = Main.layoutManager.primaryMonitor;
+          Main.layoutManager.primaryMonitor = Main.layoutManager.currentMonitor;
+          super.vfunc_allocate.apply(this, args);
+          Main.layoutManager.primaryMonitor = primaryMonitor;
+        } else {
+          super.vfunc_allocate.apply(this, args);
+        }
+      }
+    }
+  );
 
-        const result = super.vfunc_allocate.apply(this, arguments);
-        Main.layoutManager.primaryMonitor = primaryMonitor;
+  appSwitcherPopup = GObject.registerClass(
+    class ASPopup extends AltTab.AppSwitcherPopup {
+      _init() {
+        super._init();
 
-        return result;
+        if (AS_FILTER_WORKSPACE || AS_FILTER_MONITOR) {
+          let apps = Shell.AppSystem.get_default().get_running();
+
+          if (AS_FILTER_WORKSPACE) {
+            const wsManager = global.workspace_manager;
+            const activeWs = wsManager.get_active_workspace();
+            apps = apps.filter((a) => a.is_on_workspace(activeWs));
+          }
+
+          if (AS_FILTER_MONITOR) {
+            const monitor = global.display.get_current_monitor();
+            apps = apps.filter((a) =>
+              a.get_windows().some((w) => w.get_monitor() === monitor)
+            );
+          }
+
+          this._switcherList = new AltTab.AppSwitcher(apps, this);
+          this._items = this._switcherList.icons;
+        }
+      }
+
+      vfunc_allocate(...args) {
+        if (AS_CURRENT_MONITOR) {
+          const primaryMonitor = Main.layoutManager.primaryMonitor;
+          Main.layoutManager.primaryMonitor = Main.layoutManager.currentMonitor;
+          super.vfunc_allocate.apply(this, args);
+          Main.layoutManager.primaryMonitor = primaryMonitor;
+        } else {
+          super.vfunc_allocate.apply(this, args);
+        }
       }
     }
   );
@@ -92,13 +179,15 @@ function init() {
 function enable() {
   enableSettings();
 
-  AltTab.getWindows = FILTER_PER_MONITOR ? getWindows : _getWindows;
-  AltTab.WindowSwitcherPopup = SHOW_IN_CURRENT ? windowSwitcherPopup : _windowSwitcherPopup;
+  AltTab.getWindows = getWindows;
+  AltTab.WindowSwitcherPopup = windowSwitcherPopup;
+  AltTab.AppSwitcherPopup = appSwitcherPopup;
 }
 
 function disable() {
+  disableSettings();
+
   AltTab.getWindows = _getWindows;
   AltTab.WindowSwitcherPopup = _windowSwitcherPopup;
-
-  disableSettings();
+  AltTab.AppSwitcherPopup = _appSwitcherPopup;
 }
