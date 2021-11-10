@@ -1,4 +1,10 @@
-## [v4](https://github.com/gedzeppelin/monitor-window-switcher/compare/v3...v4) (2021-11-10)
+## [v5](https://github.com/gedzeppelin/monitor-window-switcher/compare/v4...v5) (2021-11-10)
+
+### Fix
+
+- **extension:** Destroy settings on extension disable.
+
+# [v4](https://github.com/gedzeppelin/monitor-window-switcher/compare/v3...v4) (2021-11-10)
 
 ### Feature
 
