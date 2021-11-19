@@ -1,3 +1,9 @@
+## [v6](https://github.com/gedzeppelin/monitor-window-switcher/compare/v5...v6) (2021-11-19)
+
+### Fix
+
+- **extension:** Create settings on extension enable.
+
 ## [v5](https://github.com/gedzeppelin/monitor-window-switcher/compare/v4...v5) (2021-11-10)
 
 ### Fix

@@ -42,7 +42,7 @@ let asCurrentMonitorSignal;
 let asFilterWorkspaceSignal;
 let asFilterMonitorSignal;
 
-function getSchema() {
+function getSettings() {
   const schemaDir = Me.dir.get_child("schemas").get_path();
   const schemaSource = Gio.SettingsSchemaSource.new_from_directory(
     schemaDir,
@@ -57,6 +57,8 @@ function getSchema() {
 }
 
 function enableSettings() {
+  settings = getSettings();
+
   AS_FILTER_WORKSPACE = settings.get_boolean(AS_FILTER_WORKSPACE_KEY);
   AS_FILTER_MONITOR = settings.get_boolean(AS_FILTER_MONITOR_KEY);
 
@@ -119,8 +121,6 @@ function init() {
   _windowSwitcherPopup = AltTab.WindowSwitcherPopup;
   _appSwitcherPopup = AltTab.AppSwitcherPopup;
 
-  settings = getSchema();
-
   windowSwitcherPopup = GObject.registerClass(
     class WSPopup extends AltTab.WindowSwitcherPopup {
       vfunc_allocate(...args) {
@@ -181,7 +181,6 @@ function enable() {
   AltTab.getWindows = settings.get_boolean(WS_FILTER_MONITOR_KEY)
     ? getWindows
     : _getWindows;
-
   AltTab.AppSwitcherPopup = settings.get_boolean(AS_CURRENT_MONITOR_KEY)
     ? appSwitcherPopup
     : _appSwitcherPopup;
@@ -193,7 +192,6 @@ function disable() {
 
   AltTab.WindowSwitcherPopup = _windowSwitcherPopup;
   AltTab.getWindows = _getWindows;
-
   AltTab.AppSwitcher = _appSwitcher;
   AltTab.AppSwitcherPopup = _appSwitcherPopup;
 }
